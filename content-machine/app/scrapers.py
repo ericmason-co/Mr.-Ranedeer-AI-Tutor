@@ -58,16 +58,11 @@ def save_profile_posts(raw_posts: list[dict]):
         content = p.get("content") or p.get("text") or ""
         url = p.get("post_url") or p.get("postUrl") or p.get("url") or ""
         post_id = _make_id(url, content[:80])
-        # atomus actor uses likes_count / comments_count / shares_count
-        likes = _safe_int(
-            p.get("likes_count") or p.get("likesCount") or p.get("likes")
-        )
-        comments = _safe_int(
-            p.get("comments_count") or p.get("commentsCount") or p.get("comments")
-        )
-        shares = _safe_int(
-            p.get("shares_count") or p.get("repostsCount") or p.get("shares")
-        )
+        # atomus actor nests engagement under "engagement" key
+        eng = p.get("engagement") or {}
+        likes = _safe_int(eng.get("total_reactions") or p.get("likes_count") or p.get("likes"))
+        comments = _safe_int(eng.get("comments") or p.get("comments_count") or p.get("comments"))
+        shares = _safe_int(eng.get("shares") or p.get("shares_count") or p.get("shares"))
         posted_at = p.get("posted_at") or p.get("postedAt") or datetime.utcnow().isoformat()
         pillar = classify_pillar(content) if content else None
 
@@ -143,11 +138,13 @@ def save_niche_posts(raw_posts: list[dict]):
         content = p.get("content") or p.get("text") or ""
         url = p.get("post_url") or p.get("url") or p.get("postUrl") or ""
         post_id = _make_id(url, content[:80])
-        author = p.get("author_name") or p.get("authorName") or p.get("author") or "Unknown"
-        author_title = p.get("author_headline") or p.get("authorHeadline") or ""
-        likes = _safe_int(p.get("likes_count") or p.get("likesCount") or p.get("likes"))
-        comments = _safe_int(p.get("comments_count") or p.get("commentsCount") or p.get("comments"))
-        shares = _safe_int(p.get("shares_count") or p.get("repostsCount") or p.get("shares"))
+        auth = p.get("author") if isinstance(p.get("author"), dict) else {}
+        author = auth.get("name") or p.get("author_name") or p.get("authorName") or "Unknown"
+        author_title = auth.get("headline") or p.get("author_headline") or p.get("authorHeadline") or ""
+        eng = p.get("engagement") or {}
+        likes = _safe_int(eng.get("total_reactions") or p.get("likes_count") or p.get("likes"))
+        comments = _safe_int(eng.get("comments") or p.get("comments_count") or p.get("comments"))
+        shares = _safe_int(eng.get("shares") or p.get("shares_count") or p.get("shares"))
         posted_at = p.get("posted_at") or p.get("postedAt") or datetime.utcnow().isoformat()
         keyword = p.get("_keyword") or ""
 
