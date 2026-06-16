@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
@@ -219,6 +219,42 @@ async def get_recycler(_: str = Depends(verify)):
     ).fetchall()
     conn.close()
     return {"posts": [dict(p) for p in posts]}
+
+
+# ── Draft ────────────────────────────────────────────────────────────────────
+
+@app.post("/api/draft")
+async def generate_draft(request: Request, _: str = Depends(verify)):
+    body = await request.json()
+    angle = body.get("angle", {})
+    source_post_id = body.get("source_post_id")
+    conn = get_db()
+    if source_post_id:
+        row = conn.execute("SELECT * FROM my_posts WHERE id=?", (source_post_id,)).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT * FROM my_posts ORDER BY (likes+comments*3) DESC LIMIT 1"
+        ).fetchone()
+    conn.close()
+    source_post = dict(row) if row else {}
+    draft = ai.generate_post_draft(angle, source_post)
+    return {"draft": draft}
+
+
+# ── Comment Targets ───────────────────────────────────────────────────────────
+
+@app.get("/api/comment-targets")
+async def get_comment_targets(_: str = Depends(verify)):
+    conn = get_db()
+    posts = conn.execute(
+        "SELECT * FROM niche_posts ORDER BY (likes + comments*3) DESC LIMIT 8"
+    ).fetchall()
+    conn.close()
+    posts_list = [dict(p) for p in posts]
+    starters = ai.generate_comment_starters(posts_list)
+    for i, p in enumerate(posts_list):
+        p["comment_starter"] = starters[i] if i < len(starters) else ""
+    return {"targets": posts_list}
 
 
 # ── Engagement ───────────────────────────────────────────────────────────────

@@ -117,6 +117,76 @@ def cluster_trends(posts: list[dict]) -> list[dict]:
         return []
 
 
+def generate_post_draft(angle: dict, source_post: dict) -> str:
+    hook = angle.get("hook", "")
+    description = angle.get("description", "")
+    title = angle.get("angle", "")
+    source_content = (source_post.get("content") or "")[:600]
+    try:
+        resp = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=600,
+            system=SYSTEM_CONTEXT,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Write a LinkedIn post for an STR/vacation rental industry expert.\n\n"
+                    f"Topic: {title}\n"
+                    f"Angle: {description}\n"
+                    f"Opening hook (use this or riff on it): {hook}\n\n"
+                    f"Style reference — write in the same voice as this high-performing post:\n---\n{source_content}\n---\n\n"
+                    "Rules:\n"
+                    "- 150-250 words\n"
+                    "- Short punchy paragraphs with line breaks between them\n"
+                    "- First person, direct, opinionated — take a clear stance\n"
+                    "- End with a question or CTA\n"
+                    "- No hashtags\n"
+                    "Return ONLY the post text, nothing else."
+                ),
+            }],
+        )
+        return resp.content[0].text.strip()
+    except Exception as e:
+        print(f"[ai] draft error: {e}")
+        return ""
+
+
+def generate_comment_starters(posts: list[dict]) -> list[str]:
+    if not posts:
+        return []
+    post_list = ""
+    for i, p in enumerate(posts[:8]):
+        content = (p.get("content") or p.get("text") or "")[:200]
+        author = p.get("author") or "Unknown"
+        post_list += f"{i+1}. [{author}]: {content}\n\n"
+    try:
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=900,
+            system=SYSTEM_CONTEXT,
+            messages=[{
+                "role": "user",
+                "content": (
+                    "For each LinkedIn post below, write a thoughtful 1-2 sentence comment that "
+                    "an STR industry expert would leave to add genuine value and boost their visibility. "
+                    "Be specific to the post content — not generic. Sound like a peer, not a fan.\n\n"
+                    f"Posts:\n{post_list}\n"
+                    "Return a JSON array of strings, one comment per post:\n"
+                    '["comment 1", "comment 2", ...]'
+                ),
+            }],
+        )
+        text = resp.content[0].text.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        return json.loads(text)
+    except Exception as e:
+        print(f"[ai] comment_starters error: {e}")
+        return []
+
+
 def filter_icp_engagers(engagers: list[dict]) -> list[dict]:
     icp_terms = [t.lower() for t in ICP_TITLES]
     result = []

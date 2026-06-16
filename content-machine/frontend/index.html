@@ -98,6 +98,7 @@
   <button onclick="switchTab('arcs', this)">Narrative Arcs</button>
   <button onclick="switchTab('recycler', this)">Recycler</button>
   <button onclick="switchTab('engagement', this)">Engagement</button>
+  <button onclick="switchTab('comment-targets', this)">Comment Targets</button>
 </nav>
 
 <main>
@@ -154,6 +155,15 @@
     <div id="recycler-content"><div class="empty"><h3>Loading...</h3></div></div>
   </div>
 
+  <!-- COMMENT TARGETS -->
+  <div id="tab-comment-targets" class="tab">
+    <div class="tab-header">
+      <div><h2>Comment Targets</h2><small>High-engagement STR posts worth commenting on</small></div>
+      <button class="btn" onclick="loadCommentTargets(this)">Refresh Targets</button>
+    </div>
+    <div id="comment-targets-content"><div class="empty"><h3>Click "Refresh Targets" to find commenting opportunities.</h3></div></div>
+  </div>
+
   <!-- ENGAGEMENT -->
   <div id="tab-engagement" class="tab">
     <div class="tab-header">
@@ -195,6 +205,7 @@ function loadTab(name) {
   };
   if (loaders[name]) loaders[name]();
 }
+
 
 function timeAgo(iso) {
   if (!iso) return 'never';
@@ -354,6 +365,9 @@ async function loadTrends(btn) {
 }
 
 // ── Lookalike ────────────────────────────────────────────────────────────────
+let _angles = [];
+let _sourcePost = null;
+
 async function loadLookalike(btn) {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Generating…';
@@ -367,6 +381,8 @@ async function loadLookalike(btn) {
     return;
   }
 
+  _angles = data.angles || [];
+  _sourcePost = data.source_post;
   const p = data.source_post;
   let html = `
     <div class="source-post">
@@ -376,20 +392,58 @@ async function loadLookalike(btn) {
     <div class="section-title">5 Adjacent Angles</div>
     <div class="grid">`;
 
-  if (!data.angles || !data.angles.length) {
+  if (!_angles.length) {
     html += `<div class="empty"><h3>Claude couldn't generate angles — check your API key.</h3></div>`;
   } else {
-    data.angles.forEach((a, i) => {
+    _angles.forEach((a, i) => {
       html += `
-        <div class="angle-card">
+        <div class="angle-card" id="angle-${i}">
           <div class="angle-title">${i+1}. ${a.angle}</div>
           <div class="angle-desc">${a.description}</div>
           <div class="hook">${a.hook}</div>
+          <div style="margin-top:12px">
+            <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="draftPost(${i}, this)">Draft Post</button>
+          </div>
+          <div id="draft-${i}" style="display:none;margin-top:12px"></div>
         </div>`;
     });
   }
   html += `</div>`;
   $('lookalike-content').innerHTML = html;
+}
+
+async function draftPost(idx, btn) {
+  const angle = _angles[idx];
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Drafting…';
+  try {
+    const res = await fetch('/api/draft', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({angle, source_post_id: _sourcePost?.id}),
+    });
+    const data = await res.json();
+    btn.disabled = false;
+    btn.textContent = 'Draft Post';
+    const container = $(`draft-${idx}`);
+    if (data.draft) {
+      window[`_draft_${idx}`] = data.draft;
+      container.style.display = 'block';
+      container.innerHTML = `
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:13px;line-height:1.7;white-space:pre-wrap">${data.draft}</div>
+        <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px;margin-top:8px" onclick="copyDraft(${idx})">Copy Post</button>`;
+    } else {
+      btn.textContent = 'Draft failed — try again';
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Draft Post';
+  }
+}
+
+function copyDraft(idx) {
+  const text = window[`_draft_${idx}`];
+  if (text) navigator.clipboard.writeText(text).then(() => toast('Post copied to clipboard!'));
 }
 
 // ── Arcs ─────────────────────────────────────────────────────────────────────
@@ -486,6 +540,51 @@ async function refreshEngagement(btn) {
   await fetch('/api/engagement/refresh', {method:'POST'});
   toast('Engagement scrape started — refresh in ~3 minutes.');
   setTimeout(() => { btn.disabled = false; btn.textContent = 'Scrape Engagers'; }, 3000);
+}
+
+// ── Comment Targets ───────────────────────────────────────────────────────────
+async function loadCommentTargets(btn) {
+  const el = $('comment-targets-content');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Analyzing…'; }
+  try {
+    const res = await fetch('/api/comment-targets');
+    const data = await res.json();
+    if (btn) { btn.disabled = false; btn.textContent = 'Refresh Targets'; }
+
+    if (!data.targets || !data.targets.length) {
+      el.innerHTML = `<div class="empty"><h3>No niche posts yet — scrape research data first.</h3></div>`;
+      return;
+    }
+
+    let html = `<p style="color:var(--text-dim);margin-bottom:16px;font-size:13px">These are the highest-engagement STR posts in your niche right now. A thoughtful comment gets your name in front of their audience.</p><div class="grid">`;
+    data.targets.forEach((p, i) => {
+      window[`_starter_${i}`] = p.comment_starter;
+      html += `
+        <div class="card">
+          <div style="font-size:12px;font-weight:600;margin-bottom:2px">${p.author || 'Unknown'}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">${p.author_title || ''}</div>
+          <div class="post-content">${p.content || '(no content)'}</div>
+          <div class="meta"><span>👍 ${p.likes}</span><span>💬 ${p.comments}</span></div>
+          ${p.comment_starter ? `
+            <div style="margin-top:12px">
+              <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Comment Starter</div>
+              <div style="background:var(--bg);border-left:3px solid var(--accent);padding:8px 12px;border-radius:0 4px 4px 0;font-size:13px;font-style:italic">${p.comment_starter}</div>
+              <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px;margin-top:8px" onclick="copyStarter(${i})">Copy Comment</button>
+            </div>` : ''}
+          ${p.url ? `<div style="margin-top:8px"><a href="${p.url}" target="_blank" style="font-size:12px;color:var(--accent)">View post ↗</a></div>` : ''}
+        </div>`;
+    });
+    html += `</div>`;
+    el.innerHTML = html;
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Refresh Targets'; }
+    el.innerHTML = `<div class="empty"><h3>Error loading targets.</h3></div>`;
+  }
+}
+
+function copyStarter(idx) {
+  const text = window[`_starter_${idx}`];
+  if (text) navigator.clipboard.writeText(text).then(() => toast('Comment copied to clipboard!'));
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

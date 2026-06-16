@@ -94,7 +94,18 @@ def save_profile_posts(raw_posts: list[dict]):
 # ---------------------------------------------------------------------------
 
 NICHE_PROFILES = [
-    "https://www.linkedin.com/in/wericmason/",  # seed with own profile for now
+    "https://www.linkedin.com/in/wericmason/",
+    "https://www.linkedin.com/in/robuilt/",
+    "https://www.linkedin.com/in/mikesjogren/",
+    "https://www.linkedin.com/in/heather-bayer/",
+    "https://www.linkedin.com/in/emily-pattillo/",
+    "https://www.linkedin.com/in/ashwinkedia/",
+    "https://www.linkedin.com/in/jodirefosco/",
+    "https://www.linkedin.com/in/mralioezdemir/",
+    "https://www.linkedin.com/in/michaelcevoli/",
+    "https://www.linkedin.com/in/mikeiannetta/",
+    "https://www.linkedin.com/in/sean-rakidzich-b02a19187/",
+    "https://www.linkedin.com/in/hailie-marie-4b20a5276/",
 ]
 
 
