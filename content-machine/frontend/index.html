@@ -217,6 +217,12 @@ function timeAgo(iso) {
   return `${Math.floor(diff/86400)}d ago`;
 }
 
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+}
+
 function truncate(text, n=160) {
   if (!text) return '';
   return text.length > n ? text.slice(0, n) + '…' : text;
@@ -232,11 +238,6 @@ async function loadBriefing() {
   const data = await res.json();
   const {top_posts, pillars, stats, last_scrape} = data;
 
-  function fmtDate(iso) {
-    if (!iso) return '—';
-    const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
-    return d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-  }
   const dateRange = (stats.earliest_post && stats.latest_post)
     ? `${fmtDate(stats.earliest_post)} – ${fmtDate(stats.latest_post)}`
     : '—';
@@ -256,6 +257,7 @@ async function loadBriefing() {
     top_posts.forEach(p => {
       html += `
         <div class="card">
+          ${p.posted_at ? `<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">${fmtDate(p.posted_at)}</div>` : ''}
           <div class="post-content">${p.content || '(no content)'}</div>
           <div class="meta">
             <span>👍 ${p.likes}</span>
@@ -312,7 +314,10 @@ async function loadResearch() {
   data.posts.forEach(p => {
     html += `
       <div class="card">
-        <div style="font-size:11px;color:var(--accent);margin-bottom:6px">${p.keyword || ''}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--accent)">${p.keyword || ''}</div>
+          ${p.posted_at ? `<div style="font-size:11px;color:var(--text-dim)">${fmtDate(p.posted_at)}</div>` : ''}
+        </div>
         <div class="post-content">${p.content || '(no content)'}</div>
         <div style="margin-top:8px;font-size:12px;font-weight:600">${p.author || ''}</div>
         <div style="font-size:11px;color:var(--text-dim)">${p.author_title || ''}</div>
@@ -386,7 +391,7 @@ async function loadLookalike(btn) {
   const p = data.source_post;
   let html = `
     <div class="source-post">
-      <h3>Source Post · ${p.likes} likes · ${p.comments} comments</h3>
+      <h3>Source Post · ${p.likes} likes · ${p.comments} comments${p.posted_at ? ` · ${fmtDate(p.posted_at)}` : ''}</h3>
       <p style="font-size:13px;color:var(--text-dim)">${truncate(p.content, 300)}</p>
     </div>
     <div class="section-title">5 Adjacent Angles</div>
@@ -561,7 +566,10 @@ async function loadCommentTargets(btn) {
       window[`_starter_${i}`] = p.comment_starter;
       html += `
         <div class="card">
-          <div style="font-size:12px;font-weight:600;margin-bottom:2px">${p.author || 'Unknown'}</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+            <div style="font-size:12px;font-weight:600">${p.author || 'Unknown'}</div>
+            ${p.posted_at ? `<div style="font-size:11px;color:var(--text-dim)">${fmtDate(p.posted_at)}</div>` : ''}
+          </div>
           <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">${p.author_title || ''}</div>
           <div class="post-content">${p.content || '(no content)'}</div>
           <div class="meta"><span>👍 ${p.likes}</span><span>💬 ${p.comments}</span></div>
