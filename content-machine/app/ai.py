@@ -11,8 +11,19 @@ SYSTEM_CONTEXT = (
 )
 
 
+PILLAR_DESCRIPTIONS = {
+    "Short-Term Rentals": "General STR industry news, regulations, market trends, property management operations, Airbnb/VRBO platform news, host strategy, pricing, reviews, OTA dynamics.",
+    "Vacation Rentals": "Vacation rental specific topics: guest experience, property design/amenities, destination travel, family/leisure stays, beach/mountain/cabin rentals, vacation home ownership.",
+    "Short-Term Rental Technology": "Software, platforms, and tech tools built FOR STR operators: PMS systems, channel managers, dynamic pricing tools, automation, smart home tech, STR-specific SaaS.",
+    "AI": "Artificial intelligence, machine learning, LLMs, ChatGPT, Claude, AI tools and their applications across any industry, AI strategy, AI impact on jobs/business.",
+    "Hospitality": "Hotels, resorts, broader hospitality industry, restaurant/F&B, travel/tourism trends, customer service culture, hospitality leadership, guest satisfaction beyond STR.",
+}
+
+
 def classify_pillar(post_content: str) -> str:
-    pillars_str = "\n".join(f"- {p}" for p in CONTENT_PILLARS)
+    pillar_list = "\n".join(
+        f"- {p}: {PILLAR_DESCRIPTIONS[p]}" for p in CONTENT_PILLARS
+    )
     try:
         resp = client.messages.create(
             model="claude-haiku-4-5-20251001",
@@ -21,8 +32,13 @@ def classify_pillar(post_content: str) -> str:
             messages=[{
                 "role": "user",
                 "content": (
-                    f"Which pillar does this post belong to? Reply with ONLY the pillar name, nothing else.\n\n"
-                    f"Pillars:\n{pillars_str}\n\nPost:\n{post_content[:400]}"
+                    "Classify this LinkedIn post into exactly ONE of the pillars below. "
+                    "Pick the MOST SPECIFIC match — if a post is about AI tools, pick AI not Short-Term Rentals. "
+                    "If about hotel operations, pick Hospitality not Short-Term Rentals. "
+                    "Only use Short-Term Rentals if the post is primarily about STR business/operations/market and doesn't fit a more specific pillar. "
+                    "Reply with ONLY the pillar name, nothing else.\n\n"
+                    f"Pillars:\n{pillar_list}\n\n"
+                    f"Post:\n{post_content[:500]}"
                 ),
             }],
         )
