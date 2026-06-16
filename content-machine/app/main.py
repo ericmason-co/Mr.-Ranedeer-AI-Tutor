@@ -261,26 +261,38 @@ async def get_comment_targets(_: str = Depends(verify)):
 
 @app.get("/api/engagement")
 async def get_engagement(_: str = Depends(verify)):
+    """
+    Surface ICP contacts from niche post authors.
+    No additional scraper needed — uses data already collected by Research.
+    """
+    from app.config import ICP_TITLES
     conn = get_db()
-    engagers = conn.execute(
-        "SELECT * FROM engagers ORDER BY found_at DESC LIMIT 30"
+    rows = conn.execute(
+        """SELECT author, author_title, url, MAX(likes+comments*3) as score,
+                  SUM(likes) as total_likes, COUNT(*) as post_count, MAX(posted_at) as last_post
+           FROM niche_posts
+           WHERE author IS NOT NULL AND author != '' AND author != 'Unknown'
+           GROUP BY author
+           ORDER BY score DESC
+           LIMIT 50"""
     ).fetchall()
     conn.close()
-    return {"engagers": [dict(e) for e in engagers]}
 
+    icp_terms = [t.lower() for t in ICP_TITLES]
+    contacts = []
+    for r in rows:
+        title = (r["author_title"] or "").lower()
+        is_icp = any(term in title for term in icp_terms)
+        contacts.append({
+            "name": r["author"],
+            "title": r["author_title"] or "",
+            "profile_url": r["url"] or "",
+            "post_count": r["post_count"],
+            "total_likes": r["total_likes"] or 0,
+            "last_post": r["last_post"],
+            "is_icp": is_icp,
+        })
 
-@app.post("/api/engagement/refresh")
-async def refresh_engagement(bg: BackgroundTasks, _: str = Depends(verify)):
-    def _scrape():
-        conn = get_db()
-        urls = conn.execute(
-            "SELECT url FROM niche_posts WHERE url IS NOT NULL LIMIT 5"
-        ).fetchall()
-        conn.close()
-        post_urls = [r["url"] for r in urls if r["url"]]
-        if post_urls:
-            raw = scrapers.scrape_post_engagers(post_urls)
-            filtered = ai.filter_icp_engagers(raw)
-            scrapers.save_engagers(filtered)
-    bg.add_task(_scrape)
-    return {"status": "started"}
+    icp = [c for c in contacts if c["is_icp"]]
+    others = [c for c in contacts if not c["is_icp"]]
+    return {"icp": icp, "others": others[:20]}

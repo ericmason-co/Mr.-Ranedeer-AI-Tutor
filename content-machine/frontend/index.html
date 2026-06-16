@@ -167,8 +167,7 @@
   <!-- ENGAGEMENT -->
   <div id="tab-engagement" class="tab">
     <div class="tab-header">
-      <div><h2>Engagement Scraper</h2></div>
-      <button class="btn" onclick="refreshEngagement(this)">Scrape Engagers</button>
+      <div><h2>STR Contacts</h2><small>Active STR people found in your research data</small></div>
     </div>
     <div id="engagement-content"><div class="empty"><h3>Loading...</h3></div></div>
   </div>
@@ -519,32 +518,44 @@ async function loadRecycler() {
 async function loadEngagement() {
   const res = await fetch('/api/engagement');
   const data = await res.json();
+  const total = (data.icp || []).length + (data.others || []).length;
 
-  if (!data.engagers.length) {
-    $('engagement-content').innerHTML = `<div class="empty"><h3>No engagers found yet.</h3><p>Scrape niche posts first, then click "Scrape Engagers".</p></div>`;
+  if (!total) {
+    $('engagement-content').innerHTML = `<div class="empty"><h3>No contacts yet.</h3><p>Scrape research data first — STR contacts are pulled from those posts.</p></div>`;
     return;
   }
 
-  let html = `<div class="card"><table class="engager-table">
-    <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Found</th></tr></thead><tbody>`;
-  data.engagers.forEach(e => {
-    html += `<tr>
-      <td>${e.profile_url ? `<a href="${e.profile_url}" target="_blank">${e.name}</a>` : e.name}</td>
-      <td style="color:var(--text-dim)">${e.title || '—'}</td>
-      <td style="color:var(--text-dim)">${e.company || '—'}</td>
-      <td style="color:var(--text-dim)">${timeAgo(e.found_at)}</td>
+  function contactRow(c) {
+    const nameCell = c.profile_url
+      ? `<a href="${c.profile_url}" target="_blank">${c.name}</a>`
+      : c.name;
+    return `<tr>
+      <td>${nameCell}</td>
+      <td style="color:var(--text-dim)">${c.title || '—'}</td>
+      <td style="color:var(--text-dim)">${c.post_count} post${c.post_count !== 1 ? 's' : ''}</td>
+      <td style="color:var(--text-dim)">${c.last_post ? fmtDate(c.last_post) : '—'}</td>
     </tr>`;
-  });
-  html += `</tbody></table></div>`;
-  $('engagement-content').innerHTML = html;
-}
+  }
 
-async function refreshEngagement(btn) {
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Scraping…';
-  await fetch('/api/engagement/refresh', {method:'POST'});
-  toast('Engagement scrape started — refresh in ~3 minutes.');
-  setTimeout(() => { btn.disabled = false; btn.textContent = 'Scrape Engagers'; }, 3000);
+  let html = '';
+
+  if (data.icp && data.icp.length) {
+    html += `<div class="section-title">ICP Matches — prioritize these</div>
+    <div class="card"><table class="engager-table">
+      <thead><tr><th>Name</th><th>Title</th><th>Posts Found</th><th>Last Post</th></tr></thead>
+      <tbody>${data.icp.map(contactRow).join('')}</tbody>
+    </table></div>`;
+  }
+
+  if (data.others && data.others.length) {
+    html += `<div class="section-title">Other Active STR People</div>
+    <div class="card"><table class="engager-table">
+      <thead><tr><th>Name</th><th>Title</th><th>Posts Found</th><th>Last Post</th></tr></thead>
+      <tbody>${data.others.map(contactRow).join('')}</tbody>
+    </table></div>`;
+  }
+
+  $('engagement-content').innerHTML = html;
 }
 
 // ── Comment Targets ───────────────────────────────────────────────────────────
