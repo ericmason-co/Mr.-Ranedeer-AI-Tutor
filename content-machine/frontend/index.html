@@ -221,11 +221,21 @@ async function loadBriefing() {
   const data = await res.json();
   const {top_posts, pillars, stats, last_scrape} = data;
 
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+    return d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  }
+  const dateRange = (stats.earliest_post && stats.latest_post)
+    ? `${fmtDate(stats.earliest_post)} – ${fmtDate(stats.latest_post)}`
+    : '—';
+
   let html = `
     <div class="stats-row">
       <div class="stat-card"><div class="label">Total Posts</div><div class="value">${stats.total_posts}</div></div>
       <div class="stat-card"><div class="label">Total Likes</div><div class="value">${(stats.total_likes||0).toLocaleString()}</div></div>
       <div class="stat-card"><div class="label">Total Comments</div><div class="value">${(stats.total_comments||0).toLocaleString()}</div></div>
+      <div class="stat-card"><div class="label">Data Range</div><div class="value" style="font-size:13px;margin-top:6px;line-height:1.4">${dateRange}</div></div>
       <div class="stat-card"><div class="label">Last Sync</div><div class="value" style="font-size:16px;margin-top:4px">${timeAgo(last_scrape)}</div></div>
     </div>`;
 

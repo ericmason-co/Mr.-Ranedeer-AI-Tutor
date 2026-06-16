@@ -69,7 +69,7 @@ async def get_briefing(_: str = Depends(verify)):
         "SELECT * FROM pillar_tracking ORDER BY last_posted_at ASC NULLS FIRST"
     ).fetchall()
     stats_row = conn.execute(
-        "SELECT COUNT(*) as total, SUM(likes) as tl, SUM(comments) as tc FROM my_posts"
+        "SELECT COUNT(*) as total, SUM(likes) as tl, SUM(comments) as tc, MIN(posted_at) as earliest, MAX(posted_at) as latest FROM my_posts"
     ).fetchone()
     last_scrape = conn.execute(
         "SELECT ran_at FROM scrape_log WHERE scrape_type='profile_posts' AND status='success' ORDER BY ran_at DESC LIMIT 1"
@@ -103,6 +103,8 @@ async def get_briefing(_: str = Depends(verify)):
             "total_posts": stats_row["total"] or 0,
             "total_likes": stats_row["tl"] or 0,
             "total_comments": stats_row["tc"] or 0,
+            "earliest_post": stats_row["earliest"],
+            "latest_post": stats_row["latest"],
         },
         "last_scrape": last_scrape["ran_at"] if last_scrape else None,
     }
