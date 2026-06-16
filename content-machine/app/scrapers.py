@@ -20,20 +20,25 @@ def _safe_int(val) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Profile posts — actor: bebity/linkedin-profile-posts-scraper
-# Output fields: postUrl, text, likesCount, commentsCount, repostsCount, postedAt
+# Profile posts — actor: atomus/linkedin-posts-scraper-pro
+# Output fields: content, post_url, posted_at, author_name,
+#                likes_count, comments_count, shares_count (+ more)
 # ---------------------------------------------------------------------------
 
 def scrape_profile_posts(limit: int = 30) -> list[dict]:
     run_input = {
-        "profileUrls": [LINKEDIN_PROFILE_URL],
-        "maxPostCount": limit,
+        "profiles": [LINKEDIN_PROFILE_URL],
+        "maxPostsPerProfile": limit,
+        "includeReposts": False,
+        "includeSharedPosts": True,
     }
     try:
-        run = client.actor("bebity/linkedin-profile-posts-scraper").call(
+        run = client.actor("atomus/linkedin-posts-scraper-pro").call(
             run_input=run_input, timeout_secs=180
         )
         items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+        # Filter out error/meta items returned by the actor
+        items = [i for i in items if i.get("type") != "error"]
         log_scrape("profile_posts", "success", len(items))
         return items
     except Exception as e:
@@ -50,13 +55,20 @@ def save_profile_posts(raw_posts: list[dict]):
 
     conn = get_db()
     for p in raw_posts:
-        content = p.get("text") or p.get("content") or ""
-        url = p.get("postUrl") or p.get("url") or ""
+        content = p.get("content") or p.get("text") or ""
+        url = p.get("post_url") or p.get("postUrl") or p.get("url") or ""
         post_id = _make_id(url, content[:80])
-        likes = _safe_int(p.get("likesCount") or p.get("likes"))
-        comments = _safe_int(p.get("commentsCount") or p.get("comments"))
-        shares = _safe_int(p.get("repostsCount") or p.get("sharesCount") or p.get("shares"))
-        posted_at = p.get("postedAt") or p.get("publishedAt") or datetime.utcnow().isoformat()
+        # atomus actor uses likes_count / comments_count / shares_count
+        likes = _safe_int(
+            p.get("likes_count") or p.get("likesCount") or p.get("likes")
+        )
+        comments = _safe_int(
+            p.get("comments_count") or p.get("commentsCount") or p.get("comments")
+        )
+        shares = _safe_int(
+            p.get("shares_count") or p.get("repostsCount") or p.get("shares")
+        )
+        posted_at = p.get("posted_at") or p.get("postedAt") or datetime.utcnow().isoformat()
         pillar = classify_pillar(content) if content else None
 
         conn.execute(
@@ -81,35 +93,42 @@ def save_profile_posts(raw_posts: list[dict]):
 
 
 # ---------------------------------------------------------------------------
-# Niche posts — actor: curious_coder/linkedin-post-search-scraper
-# Output fields: url, text, authorName, authorHeadline, likesCount, commentsCount, postedAt
+# Niche posts — actor: atomus/linkedin-posts-scraper-pro
+# Scrapes posts from key STR/hospitality influencer profiles as niche signal.
+# Add more LinkedIn profile URLs to NICHE_PROFILES in config to expand coverage.
 # ---------------------------------------------------------------------------
 
+NICHE_PROFILES = [
+    "https://www.linkedin.com/in/wericmason/",  # seed with own profile for now
+]
+
+
 def scrape_niche_posts(days: int = 3, limit_per_keyword: int = 10) -> list[dict]:
-    date_filter = "past-24h" if days <= 1 else "past-week"
+    from app.config import NICHE_KEYWORDS
     all_posts: list[dict] = []
 
-    for keyword in NICHE_KEYWORDS[:4]:
-        run_input = {
-            "searchQueries": [keyword],
-            "datePosted": date_filter,
-            "maxItems": limit_per_keyword,
-        }
-        try:
-            run = client.actor("curious_coder/linkedin-post-search-scraper").call(
-                run_input=run_input, timeout_secs=180
-            )
-            items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
-            for item in items:
-                item["_keyword"] = keyword
-            all_posts.extend(items)
-        except Exception as e:
-            log_scrape("niche_posts", "error", error=f"{keyword}: {e}")
-            print(f"[scraper] niche posts error for '{keyword}': {e}")
+    run_input = {
+        "profiles": NICHE_PROFILES,
+        "maxPostsPerProfile": limit_per_keyword * 2,
+        "includeReposts": False,
+        "postedWithin": "1 week" if days <= 7 else "1 month",
+    }
+    try:
+        run = client.actor("atomus/linkedin-posts-scraper-pro").call(
+            run_input=run_input, timeout_secs=240
+        )
+        items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+        items = [i for i in items if i.get("type") != "error"]
+        for item in items:
+            item["_keyword"] = "niche"
+        all_posts.extend(items)
+    except Exception as e:
+        log_scrape("niche_posts", "error", error=str(e))
+        print(f"[scraper] niche posts error: {e}")
 
     all_posts.sort(
-        key=lambda p: _safe_int(p.get("likesCount") or p.get("likes"))
-        + _safe_int(p.get("commentsCount") or p.get("comments")) * 3,
+        key=lambda p: _safe_int(p.get("likes_count") or p.get("likes"))
+        + _safe_int(p.get("comments_count") or p.get("comments")) * 3,
         reverse=True,
     )
     log_scrape("niche_posts", "success", len(all_posts))
@@ -121,15 +140,15 @@ def save_niche_posts(raw_posts: list[dict]):
         return
     conn = get_db()
     for p in raw_posts:
-        content = p.get("text") or p.get("content") or ""
-        url = p.get("url") or p.get("postUrl") or ""
+        content = p.get("content") or p.get("text") or ""
+        url = p.get("post_url") or p.get("url") or p.get("postUrl") or ""
         post_id = _make_id(url, content[:80])
-        author = p.get("authorName") or p.get("author") or "Unknown"
-        author_title = p.get("authorHeadline") or p.get("authorTitle") or ""
-        likes = _safe_int(p.get("likesCount") or p.get("likes"))
-        comments = _safe_int(p.get("commentsCount") or p.get("comments"))
-        shares = _safe_int(p.get("repostsCount") or p.get("sharesCount") or p.get("shares"))
-        posted_at = p.get("postedAt") or p.get("publishedAt") or datetime.utcnow().isoformat()
+        author = p.get("author_name") or p.get("authorName") or p.get("author") or "Unknown"
+        author_title = p.get("author_headline") or p.get("authorHeadline") or ""
+        likes = _safe_int(p.get("likes_count") or p.get("likesCount") or p.get("likes"))
+        comments = _safe_int(p.get("comments_count") or p.get("commentsCount") or p.get("comments"))
+        shares = _safe_int(p.get("shares_count") or p.get("repostsCount") or p.get("shares"))
+        posted_at = p.get("posted_at") or p.get("postedAt") or datetime.utcnow().isoformat()
         keyword = p.get("_keyword") or ""
 
         conn.execute(
