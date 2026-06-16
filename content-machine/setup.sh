@@ -5,7 +5,7 @@ echo "=== Content Machine 2000 Setup ==="
 
 # Update & install Python
 apt-get update -y
-apt-get install -y python3.11 python3.11-venv python3-pip
+apt-get install -y python3 python3-venv python3-pip
 
 # Create app directory and copy files
 APP_DIR=/opt/content-machine
@@ -14,7 +14,7 @@ cp -r . $APP_DIR/
 cd $APP_DIR
 
 # Virtual environment
-python3.11 -m venv venv
+python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
 
