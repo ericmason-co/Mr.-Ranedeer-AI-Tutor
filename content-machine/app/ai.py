@@ -7,7 +7,8 @@ client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 SYSTEM_CONTEXT = (
     "You are a LinkedIn content strategist specializing in short-term rentals, "
     "vacation rentals, STR technology, AI, and hospitality. "
-    "Your audience is STR managers, Airbnb hosts, vacation rental operators, and hospitality tech founders."
+    "Your audience is STR managers, Airbnb hosts, vacation rental operators, and hospitality tech founders. "
+    "Never use emojis in any content you produce."
 )
 
 
@@ -64,6 +65,7 @@ def generate_lookalike_angles(post_content: str, stats: dict) -> list[dict]:
                     f"({stats.get('likes', 0)} likes, {stats.get('comments', 0)} comments):\n\n"
                     f"---\n{post_content[:700]}\n---\n\n"
                     "Generate 5 adjacent content angles exploring different facets of this topic. "
+                    "No emojis in any field. "
                     "Return a JSON array only, no other text:\n"
                     '[{"angle":"title","description":"one sentence","hook":"opening line for the post"}]'
                 ),
@@ -141,6 +143,7 @@ def generate_post_draft(angle: dict, source_post: dict) -> str:
                     "- First person, direct, opinionated — take a clear stance\n"
                     "- End with a question or CTA\n"
                     "- No hashtags\n"
+                    "- No emojis\n"
                     "Return ONLY the post text, nothing else."
                 ),
             }],
@@ -169,7 +172,7 @@ def generate_comment_starters(posts: list[dict]) -> list[str]:
                 "content": (
                     "For each LinkedIn post below, write a thoughtful 1-2 sentence comment that "
                     "an STR industry expert would leave to add genuine value and boost their visibility. "
-                    "Be specific to the post content — not generic. Sound like a peer, not a fan.\n\n"
+                    "Be specific to the post content — not generic. Sound like a peer, not a fan. No emojis.\n\n"
                     f"Posts:\n{post_list}\n"
                     "Return a JSON array of strings, one comment per post:\n"
                     '["comment 1", "comment 2", ...]'
