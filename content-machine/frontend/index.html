@@ -450,7 +450,7 @@ async function draftPost(idx, btn) {
 
 function copyDraft(idx) {
   const text = window[`_draft_${idx}`];
-  if (text) navigator.clipboard.writeText(text).then(() => toast('Post copied to clipboard!'));
+  if (text) copyToClipboard(text, 'Post copied to clipboard!');
 }
 
 async function sendToRobinReach(idx) {
@@ -633,9 +633,25 @@ async function loadCommentTargets(btn) {
   }
 }
 
+function copyToClipboard(text, msg) {
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => toast(msg));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand('copy'); toast(msg); }
+    catch(e) { toast('Copy failed — select text manually'); }
+    document.body.removeChild(ta);
+  }
+}
+
 function copyStarter(idx) {
   const text = window[`_starter_${idx}`];
-  if (text) navigator.clipboard.writeText(text).then(() => toast('Comment copied to clipboard!'));
+  if (text) copyToClipboard(text, 'Comment copied to clipboard!');
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
