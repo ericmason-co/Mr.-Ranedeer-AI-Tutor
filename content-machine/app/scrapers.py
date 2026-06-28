@@ -109,15 +109,27 @@ NICHE_PROFILES = [
 ]
 
 
-def scrape_niche_posts(days: int = 3, limit_per_keyword: int = 10) -> list[dict]:
-    from app.config import NICHE_KEYWORDS
+def _parse_posted_at(p: dict):
+    raw = p.get("posted_at") or p.get("postedAt") or ""
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00").replace("+00:00", ""))
+    except Exception:
+        return None
+
+
+def scrape_niche_posts(days: int = 30, limit_per_keyword: int = 10) -> list[dict]:
     all_posts: list[dict] = []
+    cutoff = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    from datetime import timedelta
+    cutoff -= timedelta(days=days)
 
     run_input = {
         "profiles": NICHE_PROFILES,
         "maxPostsPerProfile": limit_per_keyword * 2,
         "includeReposts": False,
-        "postedWithin": "1 week" if days <= 7 else "1 month",
+        "postedWithin": "1 month",
     }
     try:
         run = client.actor("atomus/linkedin-posts-scraper-pro").call(
@@ -132,13 +144,23 @@ def scrape_niche_posts(days: int = 3, limit_per_keyword: int = 10) -> list[dict]
         log_scrape("niche_posts", "error", error=str(e))
         print(f"[scraper] niche posts error: {e}")
 
-    all_posts.sort(
+    # Filter out posts older than the cutoff
+    fresh = []
+    for p in all_posts:
+        dt = _parse_posted_at(p)
+        if dt is None or dt >= cutoff:
+            fresh.append(p)
+    skipped = len(all_posts) - len(fresh)
+    if skipped:
+        print(f"[scraper] dropped {skipped} posts older than {days} days")
+
+    fresh.sort(
         key=lambda p: _safe_int(p.get("likes_count") or p.get("likes"))
         + _safe_int(p.get("comments_count") or p.get("comments")) * 3,
         reverse=True,
     )
-    log_scrape("niche_posts", "success", len(all_posts))
-    return all_posts
+    log_scrape("niche_posts", "success", len(fresh))
+    return fresh
 
 
 def save_niche_posts(raw_posts: list[dict]):

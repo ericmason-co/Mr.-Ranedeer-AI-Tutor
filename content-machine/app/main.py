@@ -122,7 +122,9 @@ async def refresh_briefing(bg: BackgroundTasks, _: str = Depends(verify)):
 async def get_research(_: str = Depends(verify)):
     conn = get_db()
     posts = conn.execute(
-        "SELECT * FROM niche_posts ORDER BY (likes + comments*3) DESC LIMIT 20"
+        """SELECT * FROM niche_posts
+           WHERE posted_at >= datetime('now', '-30 days')
+           ORDER BY (likes + comments*3) DESC LIMIT 20"""
     ).fetchall()
     last_scrape = conn.execute(
         "SELECT ran_at FROM scrape_log WHERE scrape_type='niche_posts' AND status='success' ORDER BY ran_at DESC LIMIT 1"
@@ -149,7 +151,9 @@ async def refresh_research(bg: BackgroundTasks, _: str = Depends(verify)):
 async def get_trends(_: str = Depends(verify)):
     conn = get_db()
     posts = conn.execute(
-        "SELECT * FROM niche_posts ORDER BY scraped_at DESC LIMIT 40"
+        """SELECT * FROM niche_posts
+           WHERE posted_at >= datetime('now', '-30 days')
+           ORDER BY scraped_at DESC LIMIT 40"""
     ).fetchall()
     conn.close()
     trends = ai.cluster_trends([dict(p) for p in posts])
@@ -247,7 +251,9 @@ async def generate_draft(request: Request, _: str = Depends(verify)):
 async def get_comment_targets(_: str = Depends(verify)):
     conn = get_db()
     posts = conn.execute(
-        "SELECT * FROM niche_posts ORDER BY (likes + comments*3) DESC LIMIT 8"
+        """SELECT * FROM niche_posts
+           WHERE posted_at >= datetime('now', '-30 days')
+           ORDER BY (likes + comments*3) DESC LIMIT 8"""
     ).fetchall()
     conn.close()
     posts_list = [dict(p) for p in posts]
