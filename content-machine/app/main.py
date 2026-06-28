@@ -245,6 +245,22 @@ async def generate_draft(request: Request, _: str = Depends(verify)):
     return {"draft": draft}
 
 
+# ── RobinReach ───────────────────────────────────────────────────────────────
+
+@app.post("/api/send-to-robinreach")
+async def send_to_robinreach(request: Request, _: str = Depends(verify)):
+    body = await request.json()
+    content = (body.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="No content provided")
+    try:
+        from app import robinreach
+        result = robinreach.create_linkedin_draft(content)
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── Comment Targets ───────────────────────────────────────────────────────────
 
 @app.get("/api/comment-targets")

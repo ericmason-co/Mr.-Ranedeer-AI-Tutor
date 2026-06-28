@@ -435,7 +435,10 @@ async function draftPost(idx, btn) {
       container.style.display = 'block';
       container.innerHTML = `
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:13px;line-height:1.7;white-space:pre-wrap">${data.draft}</div>
-        <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px;margin-top:8px" onclick="copyDraft(${idx})">Copy Post</button>`;
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="copyDraft(${idx})">Copy Post</button>
+          <button class="btn btn-ghost" id="rr-btn-${idx}" style="font-size:12px;padding:6px 12px" onclick="sendToRobinReach(${idx})">Send to RobinReach</button>
+        </div>`;
     } else {
       btn.textContent = 'Draft failed — try again';
     }
@@ -448,6 +451,35 @@ async function draftPost(idx, btn) {
 function copyDraft(idx) {
   const text = window[`_draft_${idx}`];
   if (text) navigator.clipboard.writeText(text).then(() => toast('Post copied to clipboard!'));
+}
+
+async function sendToRobinReach(idx) {
+  const content = window[`_draft_${idx}`];
+  if (!content) return;
+  const btn = document.getElementById(`rr-btn-${idx}`);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Sending…';
+  try {
+    const res = await fetch('/api/send-to-robinreach', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({content})
+    });
+    const data = await res.json();
+    if (res.ok) {
+      btn.textContent = 'Saved to RobinReach!';
+      btn.style.color = '#22c55e';
+    } else {
+      btn.textContent = 'Failed';
+      btn.title = data.detail || 'Unknown error';
+      btn.disabled = false;
+      toast('RobinReach error: ' + (data.detail || 'try again'));
+    }
+  } catch(e) {
+    btn.textContent = 'Send to RobinReach';
+    btn.disabled = false;
+    toast('Network error — try again');
+  }
 }
 
 // ── Arcs ─────────────────────────────────────────────────────────────────────

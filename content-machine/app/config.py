@@ -7,6 +7,7 @@ APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 LINKEDIN_PROFILE_URL = os.getenv("LINKEDIN_PROFILE_URL", "https://www.linkedin.com/in/wericmason/")
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "content2000")
+ROBINREACH_API_KEY = os.getenv("ROBINREACH_API_KEY", "")
 
 CONTENT_PILLARS = [
     "Short-Term Rentals",
