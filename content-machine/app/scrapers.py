@@ -167,6 +167,9 @@ def save_niche_posts(raw_posts: list[dict]):
     if not raw_posts:
         return
     conn = get_db()
+    # Purge stale records before inserting fresh ones
+    conn.execute("DELETE FROM niche_posts WHERE posted_at < datetime('now', '-30 days')")
+    conn.commit()
     for p in raw_posts:
         content = p.get("content") or p.get("text") or ""
         url = p.get("post_url") or p.get("url") or p.get("postUrl") or ""
