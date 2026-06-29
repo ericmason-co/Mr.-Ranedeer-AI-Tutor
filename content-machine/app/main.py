@@ -35,7 +35,7 @@ def morning_scrape():
     print(f"[scheduler] morning scrape started at {datetime.utcnow().isoformat()}")
     posts = scrapers.scrape_profile_posts(limit=30)
     scrapers.save_profile_posts(posts)
-    niche = scrapers.scrape_niche_posts(days=1)
+    niche = scrapers.scrape_niche_posts(days=7)
     scrapers.save_niche_posts(niche)
     print(f"[scheduler] done — {len(posts)} profile posts, {len(niche)} niche posts")
 
@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown()
 
 
-app = FastAPI(lifespan=lifespan, title="Content Machine 2000", docs_url=None, redoc_url=None)
+app = FastAPI(lifespan=lifespan, title="LinkedIn Time Machine", docs_url=None, redoc_url=None)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -123,7 +123,7 @@ async def get_research(_: str = Depends(verify)):
     conn = get_db()
     posts = conn.execute(
         """SELECT * FROM niche_posts
-           WHERE posted_at >= datetime('now', '-30 days')
+           WHERE posted_at >= datetime('now', '-7 days')
            ORDER BY (likes + comments*3) DESC LIMIT 20"""
     ).fetchall()
     last_scrape = conn.execute(
@@ -139,7 +139,7 @@ async def get_research(_: str = Depends(verify)):
 @app.post("/api/research/refresh")
 async def refresh_research(bg: BackgroundTasks, _: str = Depends(verify)):
     def _scrape():
-        posts = scrapers.scrape_niche_posts(days=3)
+        posts = scrapers.scrape_niche_posts(days=7)
         scrapers.save_niche_posts(posts)
     bg.add_task(_scrape)
     return {"status": "started"}
@@ -152,7 +152,7 @@ async def get_trends(_: str = Depends(verify)):
     conn = get_db()
     posts = conn.execute(
         """SELECT * FROM niche_posts
-           WHERE posted_at >= datetime('now', '-30 days')
+           WHERE posted_at >= datetime('now', '-7 days')
            ORDER BY scraped_at DESC LIMIT 40"""
     ).fetchall()
     conn.close()
@@ -218,7 +218,7 @@ async def get_recycler(_: str = Depends(verify)):
     conn = get_db()
     posts = conn.execute(
         """SELECT * FROM my_posts
-           WHERE posted_at < datetime('now', '-30 days')
+           WHERE posted_at < datetime('now', '-7 days')
            ORDER BY (likes + comments*3) DESC LIMIT 10"""
     ).fetchall()
     conn.close()
@@ -268,7 +268,7 @@ async def get_comment_targets(_: str = Depends(verify)):
     conn = get_db()
     posts = conn.execute(
         """SELECT * FROM niche_posts
-           WHERE posted_at >= datetime('now', '-30 days')
+           WHERE posted_at >= datetime('now', '-7 days')
            ORDER BY (likes + comments*3) DESC LIMIT 8"""
     ).fetchall()
     conn.close()

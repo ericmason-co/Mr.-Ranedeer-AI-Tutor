@@ -119,17 +119,16 @@ def _parse_posted_at(p: dict):
         return None
 
 
-def scrape_niche_posts(days: int = 30, limit_per_keyword: int = 10) -> list[dict]:
+def scrape_niche_posts(days: int = 7, limit_per_keyword: int = 10) -> list[dict]:
     all_posts: list[dict] = []
-    cutoff = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     from datetime import timedelta
-    cutoff -= timedelta(days=days)
+    cutoff = datetime.utcnow() - timedelta(days=days)
 
     run_input = {
         "profiles": NICHE_PROFILES,
         "maxPostsPerProfile": limit_per_keyword * 2,
         "includeReposts": False,
-        "postedWithin": "1 month",
+        "postedWithin": "1 week",
     }
     try:
         run = client.actor("atomus/linkedin-posts-scraper-pro").call(
@@ -168,7 +167,7 @@ def save_niche_posts(raw_posts: list[dict]):
         return
     conn = get_db()
     # Purge stale records before inserting fresh ones
-    conn.execute("DELETE FROM niche_posts WHERE posted_at < datetime('now', '-30 days')")
+    conn.execute("DELETE FROM niche_posts WHERE posted_at < datetime('now', '-7 days')")
     conn.commit()
     for p in raw_posts:
         content = p.get("content") or p.get("text") or ""
