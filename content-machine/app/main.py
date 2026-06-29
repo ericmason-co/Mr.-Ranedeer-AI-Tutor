@@ -165,9 +165,16 @@ async def get_trends(_: str = Depends(verify)):
 @app.get("/api/lookalike")
 async def get_lookalike(_: str = Depends(verify)):
     conn = get_db()
+    # Prefer a post from the last 7 days; fall back to all-time top
     top = conn.execute(
-        "SELECT * FROM my_posts ORDER BY (likes + comments*3) DESC LIMIT 1"
+        """SELECT * FROM my_posts
+           WHERE posted_at >= datetime('now', '-7 days')
+           ORDER BY (likes + comments*3) DESC LIMIT 1"""
     ).fetchone()
+    if not top:
+        top = conn.execute(
+            "SELECT * FROM my_posts ORDER BY (likes + comments*3) DESC LIMIT 1"
+        ).fetchone()
     conn.close()
     if not top:
         return {"angles": [], "source_post": None}
@@ -218,7 +225,7 @@ async def get_recycler(_: str = Depends(verify)):
     conn = get_db()
     posts = conn.execute(
         """SELECT * FROM my_posts
-           WHERE posted_at < datetime('now', '-7 days')
+           WHERE posted_at >= datetime('now', '-7 days')
            ORDER BY (likes + comments*3) DESC LIMIT 10"""
     ).fetchall()
     conn.close()
